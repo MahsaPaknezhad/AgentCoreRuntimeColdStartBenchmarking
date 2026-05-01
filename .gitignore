@@ -6,3 +6,4 @@ runtime_arns.json
 deployment_package/
 deployment_package.zip
 .env
+*.egg-info/
