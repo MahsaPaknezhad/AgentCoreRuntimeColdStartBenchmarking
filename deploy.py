@@ -25,28 +25,34 @@ def _control_client():
     return boto3.client("bedrock-agentcore-control", region_name=cfg.REGION)
 
 
+def _s3_client():
+    return boto3.client("s3", region_name=cfg.REGION)
+
+
 def _ecr_client():
     return boto3.client("ecr", region_name=cfg.REGION)
 
 
-def _sts_account_id():
-    return boto3.client("sts", region_name=cfg.REGION).get_caller_identity()["Account"]
-
-
 # ── helpers ──────────────────────────────────────────────────────────
 
-def _wait_for_ready(client, arn, timeout=300):
-    """Poll until runtime status is READY."""
+def _arn_to_id(arn):
+    """Extract runtime ID from ARN like arn:aws:bedrock-agentcore:...:runtime/name-XXXX"""
+    return arn.rsplit("/", 1)[-1]
+
+
+def _wait_for_ready(client, arn, timeout=600):
+    """Poll until runtime status is READY/ACTIVE."""
+    runtime_id = _arn_to_id(arn)
     deadline = time.time() + timeout
     while time.time() < deadline:
-        resp = client.get_agent_runtime(agentRuntimeArn=arn)
+        resp = client.get_agent_runtime(agentRuntimeId=runtime_id)
         status = resp.get("status") or resp.get("agentRuntimeStatus")
         print(f"  status: {status}")
         if status in ("READY", "ACTIVE"):
             return resp
         if status in ("FAILED", "DELETE_FAILED"):
             sys.exit(f"Runtime {arn} entered {status}")
-        time.sleep(10)
+        time.sleep(15)
     sys.exit(f"Timed out waiting for {arn}")
 
 
@@ -70,12 +76,38 @@ def _runtime_exists(client, name):
 
 # ── ZIP deployment ───────────────────────────────────────────────────
 
-def _build_zip_bytes():
-    """Create an in-memory ZIP of agent/app.py."""
+_S3_BUCKET = f"bedrock-agentcore-code-{cfg.ACCOUNT_ID}-{cfg.REGION}"
+
+
+def _ensure_s3_bucket():
+    s3 = _s3_client()
+    try:
+        s3.head_bucket(Bucket=_S3_BUCKET)
+    except s3.exceptions.ClientError:
+        print(f"Creating S3 bucket: {_S3_BUCKET}")
+        s3.create_bucket(
+            Bucket=_S3_BUCKET,
+            CreateBucketConfiguration={"LocationConstraint": cfg.REGION},
+        )
+
+
+def _build_and_upload_zip():
+    """Create a ZIP of agent/app.py as main.py and upload to S3."""
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write("agent/app.py", "app.py")
-    return buf.getvalue()
+        zf.write("agent/app.py", "main.py")
+    zip_bytes = buf.getvalue()
+
+    s3 = _s3_client()
+    key = f"{cfg.ZIP_RUNTIME_NAME}/deployment_package.zip"
+    print(f"Uploading ZIP ({len(zip_bytes)} bytes) → s3://{_S3_BUCKET}/{key}")
+    s3.put_object(
+        Bucket=_S3_BUCKET,
+        Key=key,
+        Body=zip_bytes,
+        ExpectedBucketOwner=cfg.ACCOUNT_ID,
+    )
+    return key
 
 
 def deploy_zip():
@@ -83,13 +115,27 @@ def deploy_zip():
     existing = _runtime_exists(client, cfg.ZIP_RUNTIME_NAME)
     if existing:
         print(f"ZIP runtime already exists: {existing}")
+        _save_arn("zip", existing)
         return existing
 
-    print("Deploying ZIP runtime …")
-    zip_bytes = _build_zip_bytes()
+    _ensure_s3_bucket()
+    s3_key = _build_and_upload_zip()
+
+    print("Creating ZIP runtime …")
     resp = client.create_agent_runtime(
         agentRuntimeName=cfg.ZIP_RUNTIME_NAME,
-        agentRuntimeArtifact={"s3Configuration": {"bucketArn": "inline", "objectKey": "inline"}},
+        agentRuntimeArtifact={
+            "codeConfiguration": {
+                "code": {
+                    "s3": {
+                        "bucket": _S3_BUCKET,
+                        "prefix": s3_key,
+                    }
+                },
+                "runtime": "PYTHON_3_13",
+                "entryPoint": ["main.py"],
+            }
+        },
         networkConfiguration={"networkMode": "PUBLIC"},
         roleArn=cfg.ROLE_ARN,
         lifecycleConfiguration=_lifecycle(),
@@ -110,8 +156,7 @@ def _ensure_ecr_repo():
         print(f"Created ECR repo: {cfg.ECR_REPO_NAME}")
     except ecr.exceptions.RepositoryAlreadyExistsException:
         pass
-    acct = cfg.ACCOUNT_ID if cfg.ACCOUNT_ID != "CHANGE_ME" else _sts_account_id()
-    return f"{acct}.dkr.ecr.{cfg.REGION}.amazonaws.com/{cfg.ECR_REPO_NAME}:latest"
+    return f"{cfg.ACCOUNT_ID}.dkr.ecr.{cfg.REGION}.amazonaws.com/{cfg.ECR_REPO_NAME}:latest"
 
 
 def _docker_build_and_push(image_uri):
@@ -136,12 +181,13 @@ def deploy_docker():
     existing = _runtime_exists(client, cfg.DOCKER_RUNTIME_NAME)
     if existing:
         print(f"Docker runtime already exists: {existing}")
+        _save_arn("docker", existing)
         return existing
 
     image_uri = _ensure_ecr_repo()
     _docker_build_and_push(image_uri)
 
-    print("Deploying Docker runtime …")
+    print("Creating Docker runtime …")
     resp = client.create_agent_runtime(
         agentRuntimeName=cfg.DOCKER_RUNTIME_NAME,
         agentRuntimeArtifact={
@@ -184,7 +230,7 @@ def teardown():
     for mode, arn in _load_arns().items():
         print(f"Deleting {mode} runtime: {arn}")
         try:
-            client.delete_agent_runtime(agentRuntimeArn=arn)
+            client.delete_agent_runtime(agentRuntimeId=_arn_to_id(arn))
         except Exception as e:
             print(f"  warning: {e}")
     if os.path.exists(_ARN_FILE):
