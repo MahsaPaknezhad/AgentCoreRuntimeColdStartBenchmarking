@@ -83,6 +83,13 @@ For machine-readable output: `.venv/bin/python report.py --json`
 
 ## Results (10 rounds, ap-southeast-2)
 
+**Metric definitions:**
+- **Provisioning** — Time to create a new AgentCore runtime and wait until it reaches READY status. This is infrastructure spin-up, not cold start.
+- **Cold invoke latency** — Wall-clock time for the first request to a freshly provisioned runtime (network + platform overhead + agent execution).
+- **Warm invoke latency** — Same, but for the second request on an already-warm runtime.
+- **Cold start overhead** — Extra platform overhead unique to the first request: `(cold_invoke − cold_agent_ms) − (warm_invoke − warm_agent_ms)`. Subtracting agent execution time isolates platform overhead, then subtracting warm from cold isolates first-request initialization (container setup, routing, etc.).
+- **App boot time** — Time from Python process start to first request handled, as reported by the agent. Captures import time, framework init, and model client setup.
+
 ### ZIP deployment
 
 | Metric | Mean | P50 | P90 |
