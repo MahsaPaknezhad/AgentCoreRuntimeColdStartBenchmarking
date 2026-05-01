@@ -1,9 +1,16 @@
-"""Run cold start experiments against deployed AgentCore runtimes.
+"""Run true cold start experiments by deleting and recreating runtimes each round.
+
+Each round:
+  1. Create a fresh runtime
+  2. Wait for READY
+  3. Cold invoke — first request to brand new runtime
+  4. Warm invoke — second request to same runtime
+  5. Compute cold_start = (cold_invoke - cold_agent) - (warm_invoke - warm_agent)
+  6. Delete the runtime
 
 Usage:
-    python experiment.py                # 5 rounds, both modes
-    python experiment.py --rounds 10
-    python experiment.py --mode zip     # only ZIP
+    python experiment.py --rounds 3
+    python experiment.py --rounds 3 --mode zip
 """
 
 import argparse
@@ -15,90 +22,163 @@ import uuid
 import boto3
 
 import config as cfg
+import deploy
 
-_ARN_FILE = "runtime_arns.json"
-
-
-def _load_arns():
-    with open(_ARN_FILE) as f:
-        return json.load(f)
+RESULTS_FILE = cfg.RESULTS_FILE
 
 
 def _data_client():
     return boto3.client("bedrock-agentcore", region_name=cfg.REGION)
 
 
-def _invoke_cold(client, arn):
-    """Invoke with a fresh session ID to guarantee a cold start.
+import requests
+from botocore.auth import SigV4Auth
+from botocore.awsrequest import AWSRequest
 
-    Returns (latency_ms, response_body).
-    """
-    session_id = "bench-" + uuid.uuid4().hex  # unique → new VM
-    payload = json.dumps({"ping": True}).encode()
+
+def _arn_to_invoke_url(arn):
+    """Convert runtime ARN to the HTTPS invoke URL."""
+    # arn:aws:bedrock-agentcore:REGION:ACCT:runtime/NAME
+    region = arn.split(":")[3]
+    encoded = arn.replace(":", "%3A").replace("/", "%2F")
+    return f"https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded}/invocations?qualifier=DEFAULT"
+
+
+def _invoke(data_client, arn):
+    """Invoke runtime via HTTPS POST with SigV4 signing. Returns (latency_ms, agent_ms, uptime_s)."""
+    session_id = "bench" + uuid.uuid4().hex
+    payload = json.dumps({"input": {"prompt": "say hello"}}).encode()
+    url = _arn_to_invoke_url(arn)
+
+    # Sign the request with SigV4
+    session = boto3.Session(region_name=cfg.REGION)
+    credentials = session.get_credentials().get_frozen_credentials()
+    aws_req = AWSRequest(
+        method="POST",
+        url=url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session_id,
+        },
+    )
+    SigV4Auth(credentials, "bedrock-agentcore", cfg.REGION).add_auth(aws_req)
+
+    headers = dict(aws_req.headers.items())
 
     t0 = time.monotonic()
-    resp = client.invoke_agent_runtime(
-        agentRuntimeArn=arn,
-        runtimeSessionId=session_id,
-        payload=payload,
-        qualifier="DEFAULT",
-    )
-    # Read the full response to capture end-to-end time
-    body = resp["response"].read()
+    resp = requests.post(url, data=payload, headers=headers, timeout=120)
+    body = resp.content
     latency_ms = (time.monotonic() - t0) * 1000
-    return latency_ms, body.decode("utf-8", errors="replace")
+
+    if resp.status_code >= 400:
+        raise RuntimeError(f"HTTP {resp.status_code}: {body[:500]!r}")
+
+    agent_ms = None
+    uptime_s = None
+    try:
+        parsed = json.loads(body)
+        agent_ms = parsed.get("agent_ms")
+        uptime_s = parsed.get("uptime_s")
+    except Exception:
+        pass
+
+    return latency_ms, agent_ms, uptime_s
 
 
-def run_experiment(mode, arn, rounds, wait_seconds):
-    """Run `rounds` cold start invocations and return list of latency_ms."""
-    client = _data_client()
-    results = []
-    for i in range(1, rounds + 1):
-        if i > 1:
-            print(f"  waiting {wait_seconds}s for idle timeout …")
-            time.sleep(wait_seconds)
-        print(f"  [{mode}] round {i}/{rounds} … ", end="", flush=True)
-        try:
-            latency, body = _invoke_cold(client, arn)
-            print(f"{latency:.0f} ms")
-            results.append({"round": i, "latency_ms": round(latency, 1), "ok": True})
-        except Exception as e:
-            print(f"ERROR: {e}")
-            results.append({"round": i, "latency_ms": None, "ok": False, "error": str(e)})
-    return results
+def run_round(ctrl_client, data_client, mode, round_num, image_uri=None, s3_key=None):
+    name = f"csbench_{mode}_r{round_num}_{uuid.uuid4().hex[:6]}"
+    print(f"  [{mode}] round {round_num}: creating {name} …", flush=True)
+
+    t_create = time.monotonic()
+    if mode == "zip":
+        arn = deploy.create_zip_runtime(ctrl_client, name=name, s3_key=s3_key)
+    else:
+        arn = deploy.create_docker_runtime(ctrl_client, image_uri, name=name)
+
+    deploy.wait_for_ready(ctrl_client, arn)
+    create_ms = (time.monotonic() - t_create) * 1000
+    print(f"    READY in {create_ms:.0f}ms", flush=True)
+
+    result = {"round": round_num, "runtime_name": name, "create_ms": round(create_ms, 1), "ok": False}
+
+    # Cold invoke
+    print(f"    cold invoke …", end=" ", flush=True)
+    try:
+        cold_ms, cold_agent_ms, uptime_s = _invoke(data_client, arn)
+        print(f"{cold_ms:.0f}ms (agent={cold_agent_ms}ms, uptime={uptime_s}s)")
+        result.update(cold_invoke_ms=round(cold_ms, 1), cold_agent_ms=cold_agent_ms, uptime_s=uptime_s)
+    except Exception as e:
+        print(f"ERROR: {e}")
+        result["error"] = str(e)
+        deploy.delete_runtime(ctrl_client, arn)
+        return result
+
+    # Warm invoke
+    print(f"    warm invoke …", end=" ", flush=True)
+    try:
+        warm_ms, warm_agent_ms, _ = _invoke(data_client, arn)
+        print(f"{warm_ms:.0f}ms (agent={warm_agent_ms}ms)")
+        result.update(warm_invoke_ms=round(warm_ms, 1), warm_agent_ms=warm_agent_ms)
+
+        if cold_agent_ms is None or warm_agent_ms is None:
+            print(f"    ⚠ agent_ms missing (cold={cold_agent_ms}, warm={warm_agent_ms}), cannot compute cold start overhead")
+            result["ok"] = False
+            result["error"] = "agent_ms not returned by runtime"
+        else:
+            cold_overhead = cold_ms - cold_agent_ms
+            warm_overhead = warm_ms - warm_agent_ms
+            cold_start = cold_overhead - warm_overhead
+            result["cold_start_ms"] = round(cold_start, 1)
+            result["ok"] = True
+            print(f"    → cold start overhead: {cold_start:.0f}ms")
+    except Exception as e:
+        print(f"ERROR: {e}")
+        result["error"] = str(e)
+
+    print(f"    deleting …", end=" ", flush=True)
+    deploy.delete_runtime(ctrl_client, arn)
+    print("done")
+    return result
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Cold start experiment")
+    parser = argparse.ArgumentParser()
     parser.add_argument("--rounds", type=int, default=cfg.DEFAULT_ROUNDS)
     parser.add_argument("--mode", choices=["zip", "docker"])
-    parser.add_argument("--wait", type=int, default=cfg.IDLE_TIMEOUT_SECONDS + 30,
-                        help="Seconds to wait between rounds (default: idle timeout + 30)")
     args = parser.parse_args()
 
-    arns = _load_arns()
-    modes = [args.mode] if args.mode else [m for m in ("zip", "docker") if m in arns]
+    ctrl = deploy.control_client()
+    data = _data_client()
+    modes = [args.mode] if args.mode else ["zip", "docker"]
+
+    image_uri = None
+    s3_key = None
+    if "zip" in modes:
+        print("Preparing ZIP artifacts …")
+        s3_key = deploy.ensure_zip_artifacts()
+    if "docker" in modes:
+        print("Preparing Docker artifacts …")
+        image_uri = deploy.ensure_docker_artifacts()
 
     all_results = {}
     for mode in modes:
-        arn = arns[mode]
-        print(f"\n{'='*50}")
-        print(f"Running {args.rounds} cold start rounds for [{mode}]")
-        print(f"  ARN: {arn}")
-        print(f"  Wait between rounds: {args.wait}s")
-        print(f"{'='*50}")
-        all_results[mode] = run_experiment(mode, arn, args.rounds, args.wait)
+        print(f"\n{'='*60}")
+        print(f"  {mode.upper()} — {args.rounds} rounds")
+        print(f"{'='*60}")
+        results = []
+        for i in range(1, args.rounds + 1):
+            results.append(run_round(ctrl, data, mode, i, image_uri=image_uri, s3_key=s3_key))
+        all_results[mode] = results
 
-    # Merge with any existing results
     existing = {}
-    if os.path.exists(cfg.RESULTS_FILE):
-        with open(cfg.RESULTS_FILE) as f:
+    if os.path.exists(RESULTS_FILE):
+        with open(RESULTS_FILE) as f:
             existing = json.load(f)
     existing.update(all_results)
-
-    with open(cfg.RESULTS_FILE, "w") as f:
+    with open(RESULTS_FILE, "w") as f:
         json.dump(existing, f, indent=2)
-    print(f"\nResults saved to {cfg.RESULTS_FILE}")
+    print(f"\nResults saved to {RESULTS_FILE}")
 
 
 if __name__ == "__main__":

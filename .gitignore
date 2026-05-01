@@ -1,5 +1,8 @@
 __pycache__/
 *.pyc
+.venv/
 results.json
 runtime_arns.json
+deployment_package/
+deployment_package.zip
 .env

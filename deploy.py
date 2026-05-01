@@ -5,6 +5,8 @@ Usage:
     python deploy.py --mode zip
     python deploy.py --mode docker
     python deploy.py --teardown
+
+Also exposes create_runtime / delete_runtime / wait_for_ready for use by experiment.py.
 """
 
 import argparse
@@ -21,7 +23,7 @@ import boto3
 import config as cfg
 
 
-def _control_client():
+def control_client():
     return boto3.client("bedrock-agentcore-control", region_name=cfg.REGION)
 
 
@@ -35,25 +37,39 @@ def _ecr_client():
 
 # ── helpers ──────────────────────────────────────────────────────────
 
-def _arn_to_id(arn):
-    """Extract runtime ID from ARN like arn:aws:bedrock-agentcore:...:runtime/name-XXXX"""
+def arn_to_id(arn):
+    """Extract runtime ID from ARN."""
     return arn.rsplit("/", 1)[-1]
 
 
-def _wait_for_ready(client, arn, timeout=600):
-    """Poll until runtime status is READY/ACTIVE."""
-    runtime_id = _arn_to_id(arn)
+def wait_for_ready(client, arn, timeout=600):
+    """Poll until runtime status is READY."""
+    runtime_id = arn_to_id(arn)
     deadline = time.time() + timeout
     while time.time() < deadline:
         resp = client.get_agent_runtime(agentRuntimeId=runtime_id)
         status = resp.get("status") or resp.get("agentRuntimeStatus")
-        print(f"  status: {status}")
         if status in ("READY", "ACTIVE"):
             return resp
         if status in ("FAILED", "DELETE_FAILED"):
-            sys.exit(f"Runtime {arn} entered {status}")
-        time.sleep(15)
-    sys.exit(f"Timed out waiting for {arn}")
+            raise RuntimeError(f"Runtime {arn} entered {status}")
+        time.sleep(10)
+    raise TimeoutError(f"Timed out waiting for {arn}")
+
+
+def wait_for_deleted(client, arn, timeout=600):
+    """Poll until runtime is gone."""
+    runtime_id = arn_to_id(arn)
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            client.get_agent_runtime(agentRuntimeId=runtime_id)
+        except Exception as e:
+            if "ResourceNotFound" in str(type(e).__name__) or "not found" in str(e).lower() or "ResourceNotFoundException" in str(e):
+                return
+            raise
+        time.sleep(10)
+    raise TimeoutError(f"Timed out waiting for deletion of {arn}")
 
 
 def _lifecycle():
@@ -74,64 +90,97 @@ def _runtime_exists(client, name):
     return None
 
 
-# ── ZIP deployment ───────────────────────────────────────────────────
+# ── ZIP ──────────────────────────────────────────────────────────────
 
-_S3_BUCKET = f"bedrock-agentcore-code-{cfg.ACCOUNT_ID}-{cfg.REGION}"
+_S3_BUCKET = None
+
+
+def _get_s3_bucket():
+    global _S3_BUCKET
+    if _S3_BUCKET is None:
+        _S3_BUCKET = f"bedrock-agentcore-code-{cfg.ACCOUNT_ID}-{cfg.REGION}"
+    return _S3_BUCKET
 
 
 def _ensure_s3_bucket():
     s3 = _s3_client()
+    bucket = _get_s3_bucket()
     try:
-        s3.head_bucket(Bucket=_S3_BUCKET)
+        s3.head_bucket(Bucket=bucket)
     except s3.exceptions.ClientError:
-        print(f"Creating S3 bucket: {_S3_BUCKET}")
+        print(f"Creating S3 bucket: {bucket}")
         s3.create_bucket(
-            Bucket=_S3_BUCKET,
+            Bucket=bucket,
             CreateBucketConfiguration={"LocationConstraint": cfg.REGION},
         )
 
 
-def _build_and_upload_zip():
-    """Create a ZIP of agent/app.py as main.py and upload to S3."""
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.write("agent/app.py", "main.py")
-    zip_bytes = buf.getvalue()
+def _build_deployment_zip():
+    """Build a ZIP with ARM64 deps + agent code. Returns path to zip file."""
+    import shutil
+    pkg_dir = "deployment_package"
+    zip_file = "deployment_package.zip"
 
+    # Clean previous build
+    if os.path.exists(pkg_dir):
+        shutil.rmtree(pkg_dir)
+    if os.path.exists(zip_file):
+        os.remove(zip_file)
+
+    # Install ARM64 wheels into deployment_package/
+    subprocess.run([
+        "uv", "pip", "install",
+        "--python-platform", "aarch64-manylinux2014",
+        "--python-version", "3.13",
+        "--target", pkg_dir,
+        "--only-binary=:all:",
+        "strands-agents", "fastapi", "uvicorn",
+    ], check=True)
+
+    # Create zip from deps
+    subprocess.run(["zip", "-r", f"../{zip_file}", "."], cwd=pkg_dir, check=True,
+                   capture_output=True)
+    # Add agent code as main.py at zip root
+    shutil.copy("agent/app.py", "main.py")
+    subprocess.run(["zip", zip_file, "main.py"], check=True, capture_output=True)
+    os.remove("main.py")
+
+    return zip_file
+
+
+def _upload_zip():
     s3 = _s3_client()
+    bucket = _get_s3_bucket()
     key = f"{cfg.ZIP_RUNTIME_NAME}/deployment_package.zip"
-    print(f"Uploading ZIP ({len(zip_bytes)} bytes) → s3://{_S3_BUCKET}/{key}")
-    s3.put_object(
-        Bucket=_S3_BUCKET,
-        Key=key,
-        Body=zip_bytes,
-        ExpectedBucketOwner=cfg.ACCOUNT_ID,
-    )
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+        print(f"ZIP already exists at s3://{bucket}/{key}, skipping build")
+        return key
+    except s3.exceptions.ClientError:
+        pass
+    zip_file = _build_deployment_zip()
+    print(f"Uploading {zip_file} → s3://{bucket}/{key}")
+    s3.upload_file(zip_file, bucket, key,
+                   ExtraArgs={"ExpectedBucketOwner": cfg.ACCOUNT_ID})
     return key
 
 
-def deploy_zip():
-    client = _control_client()
-    existing = _runtime_exists(client, cfg.ZIP_RUNTIME_NAME)
-    if existing:
-        print(f"ZIP runtime already exists: {existing}")
-        _save_arn("zip", existing)
-        return existing
-
+def ensure_zip_artifacts():
+    """Ensure S3 bucket and ZIP are uploaded. Idempotent."""
     _ensure_s3_bucket()
-    s3_key = _build_and_upload_zip()
+    return _upload_zip()
 
-    print("Creating ZIP runtime …")
+
+def create_zip_runtime(client, name=None, s3_key=None):
+    """Create a ZIP runtime and wait for READY. Returns ARN."""
+    name = name or cfg.ZIP_RUNTIME_NAME
+    if s3_key is None:
+        s3_key = ensure_zip_artifacts()
     resp = client.create_agent_runtime(
-        agentRuntimeName=cfg.ZIP_RUNTIME_NAME,
+        agentRuntimeName=name,
         agentRuntimeArtifact={
             "codeConfiguration": {
-                "code": {
-                    "s3": {
-                        "bucket": _S3_BUCKET,
-                        "prefix": s3_key,
-                    }
-                },
+                "code": {"s3": {"bucket": _get_s3_bucket(), "prefix": s3_key}},
                 "runtime": "PYTHON_3_13",
                 "entryPoint": ["main.py"],
             }
@@ -140,68 +189,58 @@ def deploy_zip():
         roleArn=cfg.ROLE_ARN,
         lifecycleConfiguration=_lifecycle(),
     )
-    arn = resp["agentRuntimeArn"]
-    print(f"  ARN: {arn}")
-    _wait_for_ready(client, arn)
-    _save_arn("zip", arn)
-    return arn
+    return resp["agentRuntimeArn"]
 
 
-# ── Docker deployment ────────────────────────────────────────────────
+# ── Docker ───────────────────────────────────────────────────────────
 
 def _ensure_ecr_repo():
     ecr = _ecr_client()
     try:
         ecr.create_repository(repositoryName=cfg.ECR_REPO_NAME)
-        print(f"Created ECR repo: {cfg.ECR_REPO_NAME}")
     except ecr.exceptions.RepositoryAlreadyExistsException:
         pass
     return f"{cfg.ACCOUNT_ID}.dkr.ecr.{cfg.REGION}.amazonaws.com/{cfg.ECR_REPO_NAME}:latest"
 
 
 def _docker_build_and_push(image_uri):
-    print(f"Building & pushing ARM64 image → {image_uri}")
     registry = image_uri.split("/")[0]
     pwd = subprocess.check_output(
         ["aws", "ecr", "get-login-password", "--region", cfg.REGION], text=True
     ).strip()
-    subprocess.run(
-        ["docker", "login", "--username", "AWS", "--password-stdin", registry],
-        input=pwd, text=True, check=True,
-    )
-    subprocess.run(
-        ["docker", "buildx", "build", "--platform", "linux/arm64",
-         "-t", image_uri, "--push", "."],
-        check=True,
-    )
+    subprocess.run(["docker", "login", "--username", "AWS", "--password-stdin", registry],
+                   input=pwd, text=True, check=True, capture_output=True)
+    subprocess.run(["docker", "buildx", "build", "--platform", "linux/arm64",
+                    "-t", image_uri, "--push", "."], check=True, capture_output=True)
 
 
-def deploy_docker():
-    client = _control_client()
-    existing = _runtime_exists(client, cfg.DOCKER_RUNTIME_NAME)
-    if existing:
-        print(f"Docker runtime already exists: {existing}")
-        _save_arn("docker", existing)
-        return existing
-
+def ensure_docker_artifacts():
+    """Ensure ECR repo exists and image is pushed. Idempotent. Returns image URI."""
     image_uri = _ensure_ecr_repo()
     _docker_build_and_push(image_uri)
+    return image_uri
 
-    print("Creating Docker runtime …")
+
+def create_docker_runtime(client, image_uri, name=None):
+    """Create a Docker runtime. Returns ARN (caller must wait_for_ready)."""
+    name = name or cfg.DOCKER_RUNTIME_NAME
     resp = client.create_agent_runtime(
-        agentRuntimeName=cfg.DOCKER_RUNTIME_NAME,
-        agentRuntimeArtifact={
-            "containerConfiguration": {"containerUri": image_uri},
-        },
+        agentRuntimeName=name,
+        agentRuntimeArtifact={"containerConfiguration": {"containerUri": image_uri}},
         networkConfiguration={"networkMode": "PUBLIC"},
         roleArn=cfg.ROLE_ARN,
         lifecycleConfiguration=_lifecycle(),
     )
-    arn = resp["agentRuntimeArn"]
-    print(f"  ARN: {arn}")
-    _wait_for_ready(client, arn)
-    _save_arn("docker", arn)
-    return arn
+    return resp["agentRuntimeArn"]
+
+
+def delete_runtime(client, arn):
+    """Delete a runtime and wait for it to be gone."""
+    try:
+        client.delete_agent_runtime(agentRuntimeId=arn_to_id(arn))
+    except Exception:
+        pass
+    wait_for_deleted(client, arn)
 
 
 # ── ARN persistence ──────────────────────────────────────────────────
@@ -209,52 +248,75 @@ def deploy_docker():
 _ARN_FILE = "runtime_arns.json"
 
 
-def _save_arn(mode, arn):
-    data = _load_arns()
+def save_arn(mode, arn):
+    data = load_arns()
     data[mode] = arn
     with open(_ARN_FILE, "w") as f:
         json.dump(data, f, indent=2)
 
 
-def _load_arns():
+def load_arns():
     if os.path.exists(_ARN_FILE):
         with open(_ARN_FILE) as f:
             return json.load(f)
     return {}
 
 
-# ── teardown ─────────────────────────────────────────────────────────
+# ── CLI entrypoint ───────────────────────────────────────────────────
+
+def deploy_zip():
+    client = control_client()
+    existing = _runtime_exists(client, cfg.ZIP_RUNTIME_NAME)
+    if existing:
+        print(f"ZIP runtime already exists: {existing}")
+        save_arn("zip", existing)
+        return existing
+    print("Creating ZIP runtime …")
+    arn = create_zip_runtime(client)
+    print(f"  ARN: {arn}")
+    wait_for_ready(client, arn)
+    save_arn("zip", arn)
+    return arn
+
+
+def deploy_docker():
+    client = control_client()
+    existing = _runtime_exists(client, cfg.DOCKER_RUNTIME_NAME)
+    if existing:
+        print(f"Docker runtime already exists: {existing}")
+        save_arn("docker", existing)
+        return existing
+    image_uri = ensure_docker_artifacts()
+    print("Creating Docker runtime …")
+    arn = create_docker_runtime(client, image_uri)
+    print(f"  ARN: {arn}")
+    wait_for_ready(client, arn)
+    save_arn("docker", arn)
+    return arn
+
 
 def teardown():
-    client = _control_client()
-    for mode, arn in _load_arns().items():
+    client = control_client()
+    for mode, arn in load_arns().items():
         print(f"Deleting {mode} runtime: {arn}")
-        try:
-            client.delete_agent_runtime(agentRuntimeId=_arn_to_id(arn))
-        except Exception as e:
-            print(f"  warning: {e}")
+        delete_runtime(client, arn)
     if os.path.exists(_ARN_FILE):
         os.remove(_ARN_FILE)
     print("Done.")
 
 
-# ── main ─────────────────────────────────────────────────────────────
-
 def main():
     parser = argparse.ArgumentParser(description="Deploy AgentCore runtimes")
-    parser.add_argument("--mode", choices=["zip", "docker"], help="Deploy only one mode")
-    parser.add_argument("--teardown", action="store_true", help="Delete runtimes")
+    parser.add_argument("--mode", choices=["zip", "docker"])
+    parser.add_argument("--teardown", action="store_true")
     args = parser.parse_args()
-
     if args.teardown:
         teardown()
         return
-
     if args.mode in (None, "zip"):
         deploy_zip()
     if args.mode in (None, "docker"):
         deploy_docker()
-
     print("\nRuntime ARNs saved to", _ARN_FILE)
 
 

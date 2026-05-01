@@ -1,19 +1,32 @@
 """Shared configuration for the cold start benchmark.
 
-Auto-detects account ID from the current AWS session.
+Auto-detects account ID from the current AWS session on first access.
 """
+
+import functools
 
 import boto3
 
 REGION = "ap-southeast-2"
 
-# Auto-detect from current AWS credentials
-_sts = boto3.client("sts", region_name=REGION)
-_identity = _sts.get_caller_identity()
-ACCOUNT_ID = _identity["Account"]
 
-# Existing role that trusts bedrock-agentcore.amazonaws.com in ap-southeast-2
-ROLE_ARN = f"arn:aws:iam::{ACCOUNT_ID}:role/agentcore-test-agent-role"
+@functools.cache
+def _get_account_id():
+    return boto3.client("sts", region_name=REGION).get_caller_identity()["Account"]
+
+
+# Lazy property-style access via module-level __getattr__
+_DERIVED = {
+    "ACCOUNT_ID": lambda: _get_account_id(),
+    "ROLE_ARN": lambda: f"arn:aws:iam::{_get_account_id()}:role/agentcore-test-agent-role",
+}
+
+
+def __getattr__(name):
+    if name in _DERIVED:
+        return _DERIVED[name]()
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
 
 # Runtime names
 ZIP_RUNTIME_NAME = "coldstart_bench_zip"

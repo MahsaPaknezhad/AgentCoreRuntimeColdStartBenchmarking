@@ -4,9 +4,9 @@ Measures cold start latency for Amazon Bedrock AgentCore Runtime across **ZIP** 
 
 ## What it does
 
-1. **Deploys** a minimal echo agent as both ZIP and Docker runtimes to AgentCore
-2. **Runs** repeated cold start experiments (invoke with fresh session ID → wait for idle timeout → repeat)
-3. **Reports** P50/P90/P99/mean/min/max latency for each deployment mode
+1. **Creates** a fresh runtime each round, waits for READY, invokes cold + warm, then deletes it
+2. **Computes** cold start overhead = (cold invoke − agent time) − (warm invoke − agent time)
+3. **Reports** P50/P90/mean/min/max latency for each deployment mode
 
 ## Prerequisites
 
@@ -44,7 +44,7 @@ The idle timeout defaults to 120s. Lower values mean faster experiments but the 
 
 ## Running the experiment
 
-### Step 1: Deploy both runtimes
+### Step 1: Deploy both runtimes (optional, for manual testing)
 
 ```bash
 .venv/bin/python deploy.py
@@ -61,18 +61,17 @@ You can deploy only one mode: `.venv/bin/python deploy.py --mode zip` or `--mode
 ### Step 2: Run the cold start benchmark
 
 ```bash
-.venv/bin/python experiment.py --rounds 5 --wait 150
+.venv/bin/python experiment.py --rounds 5
 ```
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--rounds` | 5 | Number of cold start invocations per mode |
-| `--wait` | 150 | Seconds to wait between rounds (must exceed idle timeout) |
+| `--rounds` | 5 | Number of cold start rounds per mode |
 | `--mode` | both | Run only `zip` or `docker` |
 
-Each round invokes the runtime with a unique session ID (guaranteeing a new microVM), reads the full response, and records the end-to-end latency. Between rounds it waits for the idle timeout to expire so the next invocation is a true cold start.
+Each round creates a brand-new runtime, waits for READY, performs a cold invoke (first request) and a warm invoke (second request), computes the cold start overhead, then deletes the runtime. This guarantees every cold invoke hits a freshly provisioned environment.
 
-Results are appended to `results.json`.
+Results are saved to `results.json`.
 
 ### Step 3: View the report
 
@@ -80,14 +79,34 @@ Results are appended to `results.json`.
 .venv/bin/python report.py
 ```
 
-```
-Mode       Rounds  P50 (ms)  P90 (ms)  P99 (ms)  Mean (ms)  Min (ms)  Max (ms)
-------------------------------------------------------------------------------
-zip             5      1311      1336      1339       1304      1253      1340
-docker          5       377       502       513        420       355       514
-```
-
 For machine-readable output: `.venv/bin/python report.py --json`
+
+## Results (10 rounds, ap-southeast-2)
+
+### ZIP deployment
+
+| Metric | Mean | P50 | P90 |
+|--------|------|-----|-----|
+| Provisioning (create → READY) | 20,646 ms | 20,637 ms | 20,697 ms |
+| Cold start overhead | 334 ms | 536 ms | 1,052 ms |
+| Cold invoke latency | 5,363 ms | 5,241 ms | 6,839 ms |
+| Warm invoke latency | 5,046 ms | 5,133 ms | — |
+| App boot time (uptime_s) | 4.0 s | 3.8 s | — |
+
+### Docker deployment
+
+| Metric | Mean | P50 | P90 |
+|--------|------|-----|-----|
+| Provisioning (create → READY) | 10,792 ms | 10,762 ms | 10,857 ms |
+| Cold start overhead | 4,527 ms | 6,011 ms | 7,042 ms |
+| Cold invoke latency | 8,251 ms | 8,579 ms | 8,825 ms |
+| Warm invoke latency | 3,857 ms | 1,788 ms | — |
+| App boot time (uptime_s) | 4.0 s | 4.2 s | — |
+
+**Key observations:**
+- ZIP provisioning takes ~2× longer than Docker (~20.6s vs ~10.8s)
+- ZIP cold start overhead is significantly lower than Docker (~334ms vs ~4,527ms)
+- Docker warm invoke latency is much lower than cold, indicating substantial first-request overhead in the container runtime
 
 ### Makefile shortcuts
 
@@ -110,19 +129,22 @@ This deletes both AgentCore runtimes. The S3 bucket and ECR repository are left 
 ## How cold start is measured
 
 Each round:
-1. Generate a fresh `runtimeSessionId` (guarantees a new session → new microVM)
-2. Record `time.monotonic()` before `invoke_agent_runtime()`
-3. Read the full response body
-4. Record elapsed time — this is the **end-to-end cold start latency** including network round-trip
+1. Create a fresh runtime and wait for READY (timed as `create_ms`)
+2. Cold invoke — first request to the brand-new runtime (timed as `cold_invoke_ms`)
+3. Warm invoke — second request to the same runtime (timed as `warm_invoke_ms`)
+4. Cold start overhead = (cold_invoke − cold_agent_ms) − (warm_invoke − warm_agent_ms)
+5. Delete the runtime
+
+The agent reports its own processing time (`agent_ms`) and uptime since process start (`uptime_s`), allowing the benchmark to isolate platform overhead from agent execution time.
 
 ## Project structure
 
 ```
-├── agent/app.py       # Minimal echo agent (/invocations + /ping, stdlib only)
+├── agent/app.py       # Strands agent with timing instrumentation (/invocations + /ping)
 ├── config.py          # Region, role, runtime names, timeouts (auto-detects account)
 ├── deploy.py          # Deploys ZIP + Docker runtimes, teardown
-├── experiment.py      # Runs N cold start rounds per mode
-├── report.py          # Prints P50/P90/P99 table from results.json
+├── experiment.py      # Runs N cold start rounds per mode (create → invoke → delete)
+├── report.py          # Prints P50/P90 summary from results.json
 ├── Dockerfile         # ARM64 container for Docker mode
 ├── pyproject.toml     # Python project config (uv/pip)
 ├── Makefile           # Convenience targets
@@ -131,6 +153,5 @@ Each round:
 
 ## Notes
 
-- The echo agent is intentionally minimal (stdlib only, no model calls). Real agents with frameworks like Strands or LangGraph and Bedrock model invocations will have significantly higher cold starts.
-- Docker mode tends to be faster because the container image is pre-built. ZIP mode decompresses and sets up the runtime environment on each new session.
-- The `--wait` flag should be at least `IDLE_TIMEOUT_SECONDS + 30` to guarantee sessions are fully destroyed between rounds.
+- The agent uses [Strands Agents](https://github.com/strands-agents/strands-agents-python) with a Bedrock model call. Real-world cold starts will vary depending on model, framework, and dependencies.
+- Docker mode tends to be faster because the container image is pre-built. ZIP mode decompresses and sets up the runtime environment on each cold start.
