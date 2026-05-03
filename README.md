@@ -81,7 +81,7 @@ Results are saved to `results.json`.
 
 For machine-readable output: `.venv/bin/python report.py --json`
 
-## Results (10 rounds, ap-southeast-2)
+## Results
 
 **Metric definitions:**
 - **Provisioning**: Time to create a new AgentCore runtime and wait until it reaches READY status. This is infrastructure spin-up, not cold start.
@@ -90,7 +90,11 @@ For machine-readable output: `.venv/bin/python report.py --json`
 - **Cold start overhead**: Extra platform overhead unique to the first request: `(cold_invoke − cold_agent_ms) − (warm_invoke − warm_agent_ms)`. Subtracting agent execution time isolates platform overhead, then subtracting warm from cold isolates first-request initialization (container setup, routing, etc.).
 - **App boot time**: Time from Python process start to first request handled, as reported by the agent. Captures import time, framework init, and model client setup.
 
-### ZIP deployment
+### Experiment 1 — Fresh runtime per round (10 rounds, ap-southeast-2)
+
+Each round creates a new runtime, waits for READY, invokes cold + warm, then deletes it.
+
+#### ZIP deployment
 
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
@@ -100,7 +104,7 @@ For machine-readable output: `.venv/bin/python report.py --json`
 | Warm invoke latency | 5,046 ms | 5,133 ms | — |
 | App boot time (uptime_s) | 4.0 s | 3.8 s | — |
 
-### Docker deployment
+#### Docker deployment
 
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
@@ -114,6 +118,35 @@ For machine-readable output: `.venv/bin/python report.py --json`
 - ZIP provisioning takes ~2× longer than Docker (~20.6s vs ~10.8s)
 - ZIP cold start overhead is significantly lower than Docker (~334ms vs ~4,527ms)
 - Docker warm invoke latency is much lower than cold, indicating substantial first-request overhead in the container runtime
+
+### Experiment 2 — Pre-existing runtime (10 rounds, ap-southeast-2)
+
+Uses an already-deployed runtime. Each round invokes cold + warm on the existing runtime (no provisioning step). This isolates invoke-time cold start from runtime creation overhead.
+
+#### ZIP deployment
+
+| Metric | Mean | P50 | P90 |
+|--------|------|-----|-----|
+| Cold start overhead | 2,776 ms | 3,354 ms | 3,924 ms |
+| Cold invoke latency | 4,771 ms | 4,604 ms | 5,262 ms |
+| Warm invoke latency | 2,247 ms | 1,475 ms | — |
+
+> **Note:** Round 6 had an anomalous warm invoke (9,045 ms) resulting in a negative cold start value (−4,455 ms). This outlier is included in the mean.
+
+#### Docker deployment
+
+| Metric | Mean | P50 | P90 |
+|--------|------|-----|-----|
+| Cold start overhead | 375 ms | 335 ms | 506 ms |
+| Cold invoke latency | 1,726 ms | 1,647 ms | 1,949 ms |
+| Warm invoke latency | 1,492 ms | 1,463 ms | — |
+
+> **Note:** Docker `uptime_s` values (38s–2,285s) indicate the containers were already running, so uptime reflects total process lifetime rather than boot time.
+
+**Key observations:**
+- Docker cold start overhead (~375ms) is dramatically lower than ZIP (~2,776ms) on a pre-existing runtime
+- Docker invoke latencies are ~3× lower than ZIP for both cold and warm invocations
+- ZIP cold start overhead increased compared to Experiment 1, while Docker's decreased — suggesting the fresh-runtime provisioning in Experiment 1 masked some of the invoke-time cold start for ZIP
 
 ### Makefile shortcuts
 

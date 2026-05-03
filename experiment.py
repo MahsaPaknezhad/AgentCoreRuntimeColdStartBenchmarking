@@ -23,70 +23,12 @@ import boto3
 
 import config as cfg
 import deploy
+from invoke import invoke
 
 RESULTS_FILE = cfg.RESULTS_FILE
 
 
-def _data_client():
-    return boto3.client("bedrock-agentcore", region_name=cfg.REGION)
-
-
-import requests
-from botocore.auth import SigV4Auth
-from botocore.awsrequest import AWSRequest
-
-
-def _arn_to_invoke_url(arn):
-    """Convert runtime ARN to the HTTPS invoke URL."""
-    # arn:aws:bedrock-agentcore:REGION:ACCT:runtime/NAME
-    region = arn.split(":")[3]
-    encoded = arn.replace(":", "%3A").replace("/", "%2F")
-    return f"https://bedrock-agentcore.{region}.amazonaws.com/runtimes/{encoded}/invocations?qualifier=DEFAULT"
-
-
-def _invoke(data_client, arn):
-    """Invoke runtime via HTTPS POST with SigV4 signing. Returns (latency_ms, agent_ms, uptime_s)."""
-    session_id = "bench" + uuid.uuid4().hex
-    payload = json.dumps({"input": {"prompt": "say hello"}}).encode()
-    url = _arn_to_invoke_url(arn)
-
-    # Sign the request with SigV4
-    session = boto3.Session(region_name=cfg.REGION)
-    credentials = session.get_credentials().get_frozen_credentials()
-    aws_req = AWSRequest(
-        method="POST",
-        url=url,
-        data=payload,
-        headers={
-            "Content-Type": "application/json",
-            "X-Amzn-Bedrock-AgentCore-Runtime-Session-Id": session_id,
-        },
-    )
-    SigV4Auth(credentials, "bedrock-agentcore", cfg.REGION).add_auth(aws_req)
-
-    headers = dict(aws_req.headers.items())
-
-    t0 = time.monotonic()
-    resp = requests.post(url, data=payload, headers=headers, timeout=120)
-    body = resp.content
-    latency_ms = (time.monotonic() - t0) * 1000
-
-    if resp.status_code >= 400:
-        raise RuntimeError(f"HTTP {resp.status_code}: {body[:500]!r}")
-
-    agent_ms = None
-    uptime_s = None
-    try:
-        parsed = json.loads(body)
-        agent_ms = parsed.get("agent_ms")
-        uptime_s = parsed.get("uptime_s")
-    except Exception:
-        pass
-
-    return latency_ms, agent_ms, uptime_s
-
-
-def run_round(ctrl_client, data_client, mode, round_num, image_uri=None, s3_key=None):
+def run_round(ctrl_client, mode, round_num, image_uri=None, s3_key=None):
     name = f"csbench_{mode}_r{round_num}_{uuid.uuid4().hex[:6]}"
     print(f"  [{mode}] round {round_num}: creating {name} …", flush=True)
 
@@ -100,12 +42,13 @@ def run_round(ctrl_client, data_client, mode, round_num, image_uri=None, s3_key=
     create_ms = (time.monotonic() - t_create) * 1000
     print(f"    READY in {create_ms:.0f}ms", flush=True)
 
-    result = {"round": round_num, "runtime_name": name, "create_ms": round(create_ms, 1), "ok": False}
+    session_id = f"bench_{uuid.uuid4().hex}"
+    result = {"round": round_num, "runtime_name": name, "session_id": session_id, "create_ms": round(create_ms, 1), "ok": False}
 
     # Cold invoke
     print(f"    cold invoke …", end=" ", flush=True)
     try:
-        cold_ms, cold_agent_ms, uptime_s = _invoke(data_client, arn)
+        cold_ms, cold_agent_ms, uptime_s = invoke(arn, session_id=session_id)
         print(f"{cold_ms:.0f}ms (agent={cold_agent_ms}ms, uptime={uptime_s}s)")
         result.update(cold_invoke_ms=round(cold_ms, 1), cold_agent_ms=cold_agent_ms, uptime_s=uptime_s)
     except Exception as e:
@@ -114,10 +57,10 @@ def run_round(ctrl_client, data_client, mode, round_num, image_uri=None, s3_key=
         deploy.delete_runtime(ctrl_client, arn)
         return result
 
-    # Warm invoke
+    # Warm invoke (same session)
     print(f"    warm invoke …", end=" ", flush=True)
     try:
-        warm_ms, warm_agent_ms, _ = _invoke(data_client, arn)
+        warm_ms, warm_agent_ms, _ = invoke(arn, session_id=session_id)
         print(f"{warm_ms:.0f}ms (agent={warm_agent_ms}ms)")
         result.update(warm_invoke_ms=round(warm_ms, 1), warm_agent_ms=warm_agent_ms)
 
@@ -149,7 +92,6 @@ def main():
     args = parser.parse_args()
 
     ctrl = deploy.control_client()
-    data = _data_client()
     modes = [args.mode] if args.mode else ["zip", "docker"]
 
     image_uri = None
@@ -168,7 +110,7 @@ def main():
         print(f"{'='*60}")
         results = []
         for i in range(1, args.rounds + 1):
-            results.append(run_round(ctrl, data, mode, i, image_uri=image_uri, s3_key=s3_key))
+            results.append(run_round(ctrl, mode, i, image_uri=image_uri, s3_key=s3_key))
         all_results[mode] = results
 
     existing = {}

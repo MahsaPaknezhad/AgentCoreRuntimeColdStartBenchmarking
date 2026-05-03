@@ -47,7 +47,7 @@ def main():
         print(f"{'='*100}")
 
         # Per-round detail
-        hdr = (f"{'Rnd':>3} {'Create(ms)':>11} {'ColdInv(ms)':>12} {'WarmInv(ms)':>12}"
+        hdr = (f"{'Rnd':>3} {'ColdInv(ms)':>12} {'WarmInv(ms)':>12}"
                f" {'AgentMs':>9} {'ColdStart(ms)':>14} {'Uptime(s)':>10}")
         print(hdr)
         print("-" * len(hdr))
@@ -55,7 +55,7 @@ def main():
             if not r.get("ok"):
                 print(f"{r['round']:>3}  FAILED  {r.get('error','')[:70]}")
                 continue
-            print(f"{r['round']:>3} {r['create_ms']:>11.0f} {r['cold_invoke_ms']:>12.0f}"
+            print(f"{r['round']:>3} {r['cold_invoke_ms']:>12.0f}"
                   f" {r['warm_invoke_ms']:>12.0f} {r.get('cold_agent_ms',0):>9.0f}"
                   f" {r['cold_start_ms']:>14.0f} {r.get('uptime_s',0):>10.3f}")
 
@@ -63,14 +63,10 @@ def main():
             continue
 
         # Summary
-        create = stats([r["create_ms"] for r in ok])
         cs = stats([r["cold_start_ms"] for r in ok])
         up = stats([r["uptime_s"] for r in ok if r.get("uptime_s")])
         ci = stats([r["cold_invoke_ms"] for r in ok])
         wi = stats([r["warm_invoke_ms"] for r in ok])
-
-        print(f"\n  provisioning_ms (create runtime → READY):")
-        print(f"    mean={create['mean']:.0f}ms  p50={create['p50']:.0f}ms  p90={create['p90']:.0f}ms")
 
         print(f"\n  cold_start_ms (cold invoke overhead − warm invoke overhead):")
         print(f"    mean={cs['mean']:.0f}ms  p50={cs['p50']:.0f}ms  p90={cs['p90']:.0f}ms")

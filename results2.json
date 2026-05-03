@@ -1,0 +1,226 @@
+{
+  "zip": [
+    {
+      "round": 1,
+      "session_id": "bench_3e248efd7f18431a9461d5e06292b97e",
+      "ok": true,
+      "cold_invoke_ms": 5739.1,
+      "cold_agent_ms": 1090.1,
+      "uptime_s": 4.208,
+      "warm_invoke_ms": 1906.1,
+      "warm_agent_ms": 1758.2,
+      "cold_start_ms": 4501.1
+    },
+    {
+      "round": 2,
+      "session_id": "bench_e58464d8b1004424b15d0cb695cd5b4f",
+      "ok": true,
+      "cold_invoke_ms": 5208.8,
+      "cold_agent_ms": 1202.7,
+      "uptime_s": 3.937,
+      "warm_invoke_ms": 1531.3,
+      "warm_agent_ms": 1384.6,
+      "cold_start_ms": 3859.4
+    },
+    {
+      "round": 3,
+      "session_id": "bench_5703dba824364426a0144acba0a857c4",
+      "ok": true,
+      "cold_invoke_ms": 4561.2,
+      "cold_agent_ms": 1096.3,
+      "uptime_s": 3.431,
+      "warm_invoke_ms": 1593.4,
+      "warm_agent_ms": 1464.3,
+      "cold_start_ms": 3335.8
+    },
+    {
+      "round": 4,
+      "session_id": "bench_2314a9dec44640598817398a0e60e042",
+      "ok": true,
+      "cold_invoke_ms": 4485.8,
+      "cold_agent_ms": 1002.8,
+      "uptime_s": 3.209,
+      "warm_invoke_ms": 1679.4,
+      "warm_agent_ms": 1515.6,
+      "cold_start_ms": 3319.3
+    },
+    {
+      "round": 5,
+      "session_id": "bench_993808b4ec16452d82bba7957fd218eb",
+      "ok": true,
+      "cold_invoke_ms": 4626.7,
+      "cold_agent_ms": 1159.9,
+      "uptime_s": 3.541,
+      "warm_invoke_ms": 1417.0,
+      "warm_agent_ms": 1250.0,
+      "cold_start_ms": 3299.8
+    },
+    {
+      "round": 6,
+      "session_id": "bench_92c6afa331674ad9841ccd9a22665662",
+      "ok": true,
+      "cold_invoke_ms": 4613.2,
+      "cold_agent_ms": 1180.1,
+      "uptime_s": 3.403,
+      "warm_invoke_ms": 9045.0,
+      "warm_agent_ms": 1157.0,
+      "cold_start_ms": -4455.0
+    },
+    {
+      "round": 7,
+      "session_id": "bench_5c6ebb0e2e5942908eb6e0231d292d3e",
+      "ok": true,
+      "cold_invoke_ms": 4593.8,
+      "cold_agent_ms": 1101.4,
+      "uptime_s": 3.373,
+      "warm_invoke_ms": 1285.7,
+      "warm_agent_ms": 1188.5,
+      "cold_start_ms": 3395.1
+    },
+    {
+      "round": 8,
+      "session_id": "bench_486634a9af4e4646a423c71ab843dd34",
+      "ok": true,
+      "cold_invoke_ms": 4456.0,
+      "cold_agent_ms": 991.1,
+      "uptime_s": 3.373,
+      "warm_invoke_ms": 1240.1,
+      "warm_agent_ms": 1106.8,
+      "cold_start_ms": 3331.6
+    },
+    {
+      "round": 9,
+      "session_id": "bench_70097a48d06745968f82f51b691cda65",
+      "ok": true,
+      "cold_invoke_ms": 5042.6,
+      "cold_agent_ms": 1082.8,
+      "uptime_s": 3.675,
+      "warm_invoke_ms": 1349.8,
+      "warm_agent_ms": 1191.2,
+      "cold_start_ms": 3801.2
+    },
+    {
+      "round": 10,
+      "session_id": "bench_ad68104c5e024804bdf99c00bf0af123",
+      "ok": true,
+      "cold_invoke_ms": 4386.0,
+      "cold_agent_ms": 871.8,
+      "uptime_s": 3.242,
+      "warm_invoke_ms": 1419.0,
+      "warm_agent_ms": 1276.6,
+      "cold_start_ms": 3371.9
+    }
+  ],
+  "docker": [
+    {
+      "round": 1,
+      "session_id": "bench_d646616edef3445284100df3d2be786e",
+      "ok": true,
+      "cold_invoke_ms": 1933.3,
+      "cold_agent_ms": 1217.9,
+      "uptime_s": 1978.808,
+      "warm_invoke_ms": 1439.9,
+      "warm_agent_ms": 1310.5,
+      "cold_start_ms": 586.0
+    },
+    {
+      "round": 2,
+      "session_id": "bench_b765a07d96a24bb6915d5b635df75550",
+      "ok": true,
+      "cold_invoke_ms": 1517.0,
+      "cold_agent_ms": 1065.5,
+      "uptime_s": 2131.824,
+      "warm_invoke_ms": 1440.0,
+      "warm_agent_ms": 1312.4,
+      "cold_start_ms": 323.9
+    },
+    {
+      "round": 3,
+      "session_id": "bench_dd7f4e39f8f6472f8395686b95d7b28a",
+      "ok": true,
+      "cold_invoke_ms": 2088.4,
+      "cold_agent_ms": 1583.9,
+      "uptime_s": 2285.385,
+      "warm_invoke_ms": 1463.4,
+      "warm_agent_ms": 1287.8,
+      "cold_start_ms": 328.8
+    },
+    {
+      "round": 4,
+      "session_id": "bench_572fc9aac70440439ed69b8da75c1eb0",
+      "ok": true,
+      "cold_invoke_ms": 1912.3,
+      "cold_agent_ms": 1401.9,
+      "uptime_s": 38.446,
+      "warm_invoke_ms": 1488.7,
+      "warm_agent_ms": 1358.6,
+      "cold_start_ms": 380.3
+    },
+    {
+      "round": 5,
+      "session_id": "bench_838d0db08dc2495d83dc453be9ebf425",
+      "ok": true,
+      "cold_invoke_ms": 1663.0,
+      "cold_agent_ms": 1200.7,
+      "uptime_s": 457.401,
+      "warm_invoke_ms": 1483.4,
+      "warm_agent_ms": 1341.1,
+      "cold_start_ms": 320.0
+    },
+    {
+      "round": 6,
+      "session_id": "bench_f029028700d9484390b93dfab112ad7c",
+      "ok": true,
+      "cold_invoke_ms": 1613.4,
+      "cold_agent_ms": 1123.3,
+      "uptime_s": 149.656,
+      "warm_invoke_ms": 1473.5,
+      "warm_agent_ms": 1317.0,
+      "cold_start_ms": 333.5
+    },
+    {
+      "round": 7,
+      "session_id": "bench_b8431fc3b01942cf97da4bcb2566dfd0",
+      "ok": true,
+      "cold_invoke_ms": 1545.7,
+      "cold_agent_ms": 1122.8,
+      "uptime_s": 498.509,
+      "warm_invoke_ms": 1463.4,
+      "warm_agent_ms": 1324.4,
+      "cold_start_ms": 283.9
+    },
+    {
+      "round": 8,
+      "session_id": "bench_3e87ada1c7f34c0584182114522528bf",
+      "ok": true,
+      "cold_invoke_ms": 1793.9,
+      "cold_agent_ms": 1151.4,
+      "uptime_s": 763.086,
+      "warm_invoke_ms": 1147.4,
+      "warm_agent_ms": 1002.1,
+      "cold_start_ms": 497.2
+    },
+    {
+      "round": 9,
+      "session_id": "bench_de9ca9c5d57342a0948a44a0eeb34996",
+      "ok": true,
+      "cold_invoke_ms": 1630.2,
+      "cold_agent_ms": 1155.1,
+      "uptime_s": 803.909,
+      "warm_invoke_ms": 1316.7,
+      "warm_agent_ms": 1198.5,
+      "cold_start_ms": 356.9
+    },
+    {
+      "round": 10,
+      "session_id": "bench_c8ac4d98c7dd4e1b8084b10b98b66162",
+      "ok": true,
+      "cold_invoke_ms": 1558.7,
+      "cold_agent_ms": 1081.0,
+      "uptime_s": 609.411,
+      "warm_invoke_ms": 2199.1,
+      "warm_agent_ms": 2058.3,
+      "cold_start_ms": 336.9
+    }
+  ]
+}

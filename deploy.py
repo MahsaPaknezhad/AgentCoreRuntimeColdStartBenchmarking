@@ -205,13 +205,15 @@ def _ensure_ecr_repo():
 
 def _docker_build_and_push(image_uri):
     registry = image_uri.split("/")[0]
+    print("Logging in to ECR …", flush=True)
     pwd = subprocess.check_output(
         ["aws", "ecr", "get-login-password", "--region", cfg.REGION], text=True
     ).strip()
-    subprocess.run(["docker", "login", "--username", "AWS", "--password-stdin", registry],
-                   input=pwd, text=True, check=True, capture_output=True)
+    subprocess.run(["docker", "login", "--username", "AWS", "--password", pwd, registry],
+                   check=True)
+    print("Building and pushing Docker image (this may take a few minutes) …", flush=True)
     subprocess.run(["docker", "buildx", "build", "--platform", "linux/arm64",
-                    "-t", image_uri, "--push", "."], check=True, capture_output=True)
+                    "-t", image_uri, "--push", "."], check=True)
 
 
 def ensure_docker_artifacts():
@@ -307,7 +309,7 @@ def teardown():
 
 def main():
     parser = argparse.ArgumentParser(description="Deploy AgentCore runtimes")
-    parser.add_argument("--mode", choices=["zip", "docker"])
+    parser.add_argument("--mode", default="docker", choices=["zip", "docker"])
     parser.add_argument("--teardown", action="store_true")
     args = parser.parse_args()
     if args.teardown:
