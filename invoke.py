@@ -57,3 +57,18 @@ def invoke(arn, session_id=None):
         pass
 
     return latency_ms, agent_ms, uptime_s
+
+
+def stop_session(arn, session_id):
+    """Stop a runtime session to force VM teardown."""
+    client = boto3.client("bedrock-agentcore", region_name=cfg.REGION)
+    try:
+        client.stop_runtime_session(
+            agentRuntimeArn=arn,
+            runtimeSessionId=session_id,
+            qualifier="DEFAULT",
+        )
+    except Exception as e:
+        # Session may already be gone
+        if "ResourceNotFoundException" not in str(type(e).__name__):
+            print(f"    ⚠ stop_session error: {e}")

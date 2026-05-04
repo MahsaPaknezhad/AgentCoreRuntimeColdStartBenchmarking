@@ -84,11 +84,10 @@ For machine-readable output: `.venv/bin/python report.py --json`
 ## Results
 
 **Metric definitions:**
-- **Provisioning**: Time to create a new AgentCore runtime and wait until it reaches READY status. This is infrastructure spin-up, not cold start.
 - **Cold invoke latency**: Wall-clock time for the first request to a freshly provisioned runtime (network + platform overhead + agent execution).
 - **Warm invoke latency**: Same, but for the second request on an already-warm runtime.
 - **Cold start overhead**: Extra platform overhead unique to the first request: `(cold_invoke − cold_agent_ms) − (warm_invoke − warm_agent_ms)`. Subtracting agent execution time isolates platform overhead, then subtracting warm from cold isolates first-request initialization (container setup, routing, etc.).
-- **App boot time**: Time from Python process start to first request handled, as reported by the agent. Captures import time, framework init, and model client setup.
+- **VM uptime**: Time since the agent process started, as reported by the agent at first invoke. Indicates how long the microVM/container has been running before the first request arrives.
 
 ### Experiment 1 — Fresh runtime per round (10 rounds, ap-southeast-2)
 
@@ -98,26 +97,24 @@ Each round creates a new runtime, waits for READY, invokes cold + warm, then del
 
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
-| Provisioning (create → READY) | 20,646 ms | 20,637 ms | 20,697 ms |
-| Cold start overhead | 334 ms | 536 ms | 1,052 ms |
-| Cold invoke latency | 5,363 ms | 5,241 ms | 6,839 ms |
-| Warm invoke latency | 5,046 ms | 5,133 ms | — |
-| App boot time (uptime_s) | 4.0 s | 3.8 s | — |
+| Cold start overhead | 3,489 ms | 3,369 ms | 3,815 ms |
+| Cold invoke latency | 4,714 ms | 4,677 ms | 4,844 ms |
+| Warm invoke latency | 1,313 ms | 1,335 ms | — |
+| VM uptime | 3.5 s | 3.5 s | [3.4, 3.9] s |
 
 #### Docker deployment
 
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
-| Provisioning (create → READY) | 10,792 ms | 10,762 ms | 10,857 ms |
-| Cold start overhead | 4,527 ms | 6,011 ms | 7,042 ms |
-| Cold invoke latency | 8,251 ms | 8,579 ms | 8,825 ms |
-| Warm invoke latency | 3,857 ms | 1,788 ms | — |
-| App boot time (uptime_s) | 4.0 s | 4.2 s | — |
+| Cold start overhead | 7,359 ms | 7,361 ms | 7,429 ms |
+| Cold invoke latency | 8,781 ms | 8,635 ms | 9,040 ms |
+| Warm invoke latency | 1,496 ms | 1,342 ms | — |
+| VM uptime | 4.6 s | 4.6 s | [3.7, 5.1] s |
 
 **Key observations:**
-- ZIP provisioning takes ~2× longer than Docker (~20.6s vs ~10.8s)
-- ZIP cold start overhead is significantly lower than Docker (~334ms vs ~4,527ms)
-- Docker warm invoke latency is much lower than cold, indicating substantial first-request overhead in the container runtime
+- Docker cold start overhead is significantly higher than ZIP (~7,359ms vs ~3,489ms)
+- Both modes show low warm invoke latency (~1.3–1.5s), confirming the session reuse fix
+- ZIP cold invoke (~4.7s) is nearly half of Docker cold invoke (~8.8s)
 
 ### Experiment 2 — Pre-existing runtime (10 rounds, ap-southeast-2)
 
@@ -127,11 +124,10 @@ Uses an already-deployed runtime. Each round invokes cold + warm on the existing
 
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
-| Cold start overhead | 2,776 ms | 3,354 ms | 3,924 ms |
-| Cold invoke latency | 4,771 ms | 4,604 ms | 5,262 ms |
-| Warm invoke latency | 2,247 ms | 1,475 ms | — |
-
-> **Note:** Round 6 had an anomalous warm invoke (9,045 ms) resulting in a negative cold start value (−4,455 ms). This outlier is included in the mean.
+| Cold start overhead | 3,586 ms | 3,368 ms | 3,946 ms |
+| Cold invoke latency | 5,011 ms | 4,862 ms | 5,484 ms |
+| Warm invoke latency | 1,412 ms | 1,371 ms | — |
+| VM uptime | 3.8 s | 3.6 s | [3.3, 5.0] s |
 
 #### Docker deployment
 
@@ -140,8 +136,9 @@ Uses an already-deployed runtime. Each round invokes cold + warm on the existing
 | Cold start overhead | 375 ms | 335 ms | 506 ms |
 | Cold invoke latency | 1,726 ms | 1,647 ms | 1,949 ms |
 | Warm invoke latency | 1,492 ms | 1,463 ms | — |
+| VM uptime | 971.6 s | 686.2 s | [38.4, 2285.4] s |
 
-> **Note:** Docker `uptime_s` values (38s–2,285s) indicate the containers were already running, so uptime reflects total process lifetime rather than boot time.
+> **Note:** Docker VM uptime values (38s–2,285s) indicate the containers were already running, so uptime reflects total process lifetime rather than boot time.
 
 **Key observations:**
 - Docker cold start overhead (~375ms) is dramatically lower than ZIP (~2,776ms) on a pre-existing runtime

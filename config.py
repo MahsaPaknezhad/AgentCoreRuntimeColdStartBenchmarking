@@ -30,14 +30,14 @@ def __getattr__(name):
 
 # Runtime names
 ZIP_RUNTIME_NAME = "coldstart_bench_zip"
-DOCKER_RUNTIME_NAME = "coldstart_bench_docker"
+DOCKER_RUNTIME_NAME = "coldstart_bench_docker2"
 
 # ECR repository for the Docker variant
 ECR_REPO_NAME = "coldstart-bench-agent"
 
 # Lifecycle — keep idle timeout short so experiments run faster
-IDLE_TIMEOUT_SECONDS = 120   # 2 min idle → session destroyed
-MAX_LIFETIME_SECONDS = 300   # 5 min max
+IDLE_TIMEOUT_SECONDS = 60    # 1 min idle → session destroyed (minimum allowed)
+MAX_LIFETIME_SECONDS = 60    # 1 min max → VM terminated (minimum allowed)
 
 # Experiment defaults
 DEFAULT_ROUNDS = 5
