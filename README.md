@@ -211,3 +211,29 @@ The agent reports its own processing time (`agent_ms`) and uptime since process 
 
 - The agent uses [Strands Agents](https://github.com/strands-agents/strands-agents-python) with a Bedrock model call. Real-world cold starts will vary depending on model, framework, and dependencies.
 - Docker mode tends to be faster because the container image is pre-built. ZIP mode decompresses and sets up the runtime environment on each cold start.
+
+## Key Finding: Docker Pre-Warmed VM Pool
+
+Through experiments 2 and 3, we discovered that AgentCore maintains a pool of approximately 10 pre-warmed VMs for Docker runtimes. This has significant implications for cold start behavior:
+
+**How it works:**
+- When a Docker runtime is deployed, the platform pre-boots ~10 microVMs before any requests arrive
+- Each new session ID gets routed to a different pre-warmed VM (confirmed via unique `vm_id` per session)
+- Pre-warmed VMs show high `uptime_s` (30-200+ seconds) because they were booted ahead of time
+- The platform provides true per-session isolation (different `vm_id` and `pid` per session) while avoiding cold start latency
+
+**Evidence:**
+- Experiment 2: Different `vm_id` per round but `uptime_s` of 44s, 137s, 231s — VMs were pre-booted, not created on demand
+- Experiment 3 (blast mode, 30 concurrent): ~10 requests served by pre-warmed VMs (~300ms overhead), remaining ~20 required cold provisioning (~7-8s overhead)
+- `StopRuntimeSession` API stops the session but does not terminate the underlying VM — the platform manages VM lifecycle independently
+
+**ZIP vs Docker behavior:**
+- ZIP runtimes do NOT have a pre-warm pool. Each new session provisions a fresh process on demand (~3.5s cold start every time)
+- Docker runtimes benefit from the pre-warm pool, effectively eliminating cold starts for the first ~10 concurrent sessions
+
+**Implications for production:**
+- For Docker runtimes with ≤10 concurrent users, cold starts are effectively zero (~300ms routing overhead)
+- Beyond ~10 concurrent sessions, additional requests incur the full ~7-8s cold start
+- The pool size is not user-configurable — there is no "provisioned concurrency" setting in AgentCore
+- Adjustable quotas (Active session workloads, New sessions created rate) control capacity ceilings but not pre-warming behavior
+- Increasing `maxLifetime` may allow more VMs to accumulate in the pool, but this is unconfirmed
