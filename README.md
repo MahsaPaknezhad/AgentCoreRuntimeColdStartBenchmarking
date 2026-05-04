@@ -125,7 +125,7 @@ Uses an already-deployed runtime. Each round invokes cold + warm on the existing
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
 | Cold start overhead | 3,586 ms | 3,368 ms | 3,946 ms |
-| Cold invoke latency | 5,011 ms | 4,862 ms | 5,484 ms |
+| Cold invoke latency | 5,011 ms | 4,864 ms | 5,621 ms |
 | Warm invoke latency | 1,412 ms | 1,371 ms | — |
 | VM uptime | 3.8 s | 3.6 s | [3.3, 5.0] s |
 
@@ -133,16 +133,17 @@ Uses an already-deployed runtime. Each round invokes cold + warm on the existing
 
 | Metric | Mean | P50 | P90 |
 |--------|------|-----|-----|
-| Cold start overhead | 375 ms | 335 ms | 506 ms |
-| Cold invoke latency | 1,726 ms | 1,647 ms | 1,949 ms |
-| Warm invoke latency | 1,492 ms | 1,463 ms | — |
-| VM uptime | 971.6 s | 686.2 s | [38.4, 2285.4] s |
+| Cold start overhead | 320 ms | 328 ms | 354 ms |
+| Cold invoke latency | 1,472 ms | 1,484 ms | 1,628 ms |
+| Warm invoke latency | 1,354 ms | 1,315 ms | 1,521 ms |
+| VM uptime | 324.8 s | 191.4 s | [13.2, 851.1] s |
 
-> **Note:** Docker VM uptime values (38s–2,285s) indicate the containers were already running, so uptime reflects total process lifetime rather than boot time.
+> **Note:** Only 1 of 10 Docker rounds passed cold start validation (`cold_start_valid`). The remaining 9 rounds had high VM uptime values, indicating sessions were not fully torn down between rounds. All rounds are included in the stats above.
 
 **Key observations:**
-- Docker cold start overhead (~375ms) is dramatically lower than ZIP (~2,776ms) on a pre-existing runtime
-- Docker invoke latencies are ~3× lower than ZIP for both cold and warm invocations
+- ZIP cold start overhead (~3,586ms) is consistent with Experiment 1 (~3,489ms), confirming the result is stable across fresh and pre-existing runtimes
+- Docker's single valid round shows ~316ms cold start overhead, much lower than ZIP — but insufficient data to draw conclusions
+- Docker sessions appear to persist across rounds, preventing true cold starts in most rounds
 - ZIP cold start overhead increased compared to Experiment 1, while Docker's decreased — suggesting the fresh-runtime provisioning in Experiment 1 masked some of the invoke-time cold start for ZIP
 
 ### Makefile shortcuts
