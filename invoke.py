@@ -49,14 +49,18 @@ def invoke(arn, session_id=None):
 
     agent_ms = None
     uptime_s = None
+    vm_id = None
+    pid = None
     try:
         parsed = json.loads(body)
         agent_ms = parsed.get("agent_ms")
         uptime_s = parsed.get("uptime_s")
+        vm_id = parsed.get("vm_id")
+        pid = parsed.get("pid")
     except Exception:
         pass
 
-    return latency_ms, agent_ms, uptime_s
+    return latency_ms, agent_ms, uptime_s, vm_id, pid
 
 
 def stop_session(arn, session_id):

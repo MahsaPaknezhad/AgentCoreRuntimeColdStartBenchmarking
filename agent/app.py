@@ -4,9 +4,13 @@ POST /invocations — runs a Strands agent, returns timing breakdown
 GET  /ping        — returns Healthy
 """
 
+import os
 import time
+import uuid
 
 _START_TIME = time.time()
+_VM_ID = uuid.uuid4().hex  # Unique per process — if two sessions see the same value, same VM
+_PID = os.getpid()
 
 from fastapi import FastAPI, Request
 from strands import Agent
@@ -28,6 +32,8 @@ async def invocations(request: Request):
         "message": str(result),
         "uptime_s": round(time.time() - _START_TIME, 3),
         "agent_ms": round(agent_ms, 1),
+        "vm_id": _VM_ID,
+        "pid": _PID,
     }
 
 

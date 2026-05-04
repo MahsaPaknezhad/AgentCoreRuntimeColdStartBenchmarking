@@ -48,7 +48,7 @@ def run_round(ctrl_client, mode, round_num, image_uri=None, s3_key=None):
     # Cold invoke
     print(f"    cold invoke …", end=" ", flush=True)
     try:
-        cold_ms, cold_agent_ms, uptime_s = invoke(arn, session_id=session_id)
+        cold_ms, cold_agent_ms, uptime_s, _, _ = invoke(arn, session_id=session_id)
         print(f"{cold_ms:.0f}ms (agent={cold_agent_ms}ms, uptime={uptime_s}s)")
         result.update(cold_invoke_ms=round(cold_ms, 1), cold_agent_ms=cold_agent_ms, uptime_s=uptime_s)
     except Exception as e:
@@ -60,7 +60,7 @@ def run_round(ctrl_client, mode, round_num, image_uri=None, s3_key=None):
     # Warm invoke (same session)
     print(f"    warm invoke …", end=" ", flush=True)
     try:
-        warm_ms, warm_agent_ms, _ = invoke(arn, session_id=session_id)
+        warm_ms, warm_agent_ms, _, _, _ = invoke(arn, session_id=session_id)
         print(f"{warm_ms:.0f}ms (agent={warm_agent_ms}ms)")
         result.update(warm_invoke_ms=round(warm_ms, 1), warm_agent_ms=warm_agent_ms)
 

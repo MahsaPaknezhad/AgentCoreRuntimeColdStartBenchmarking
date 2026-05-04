@@ -146,6 +146,24 @@ Uses an already-deployed runtime. Each round invokes cold + warm on the existing
 - Docker sessions appear to persist across rounds, preventing true cold starts in most rounds
 - ZIP cold start overhead increased compared to Experiment 1, while Docker's decreased — suggesting the fresh-runtime provisioning in Experiment 1 masked some of the invoke-time cold start for ZIP
 
+### Experiment 3 — Concurrent cold starts, Docker (20 invocations, ap-southeast-2)
+
+Fires 20 concurrent invocations with unique session IDs against a pre-existing Docker runtime, forcing 20 simultaneous cold VM spin-ups. All 20 landed on unique VMs with 0 pre-warmed.
+
+#### Docker deployment
+
+| Metric | Mean | P50 | P90 |
+|--------|------|-----|-----|
+| Platform overhead | 6,872 ms | 7,446 ms | 7,531 ms |
+| Cold invoke latency | 8,209 ms | 8,469 ms | 8,724 ms |
+| Agent execution time | 1,337 ms | 1,068 ms | 1,813 ms |
+| VM uptime | 3.9 s | 3.8 s | [2.3, 7.6] s |
+
+**Key observations:**
+- Platform overhead (~6.9s) is consistent with Experiment 1 Docker cold start (~7.4s), confirming the overhead is from VM/container spin-up
+- All 20 VMs were cold (no pre-warming), with VM uptime values of 2–8s confirming fresh starts
+- Cold invoke latency (~8.2s) matches Experiment 1 Docker results (~8.8s)
+
 ### Makefile shortcuts
 
 ```bash

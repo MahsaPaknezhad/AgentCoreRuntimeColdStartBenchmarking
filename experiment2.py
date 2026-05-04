@@ -41,9 +41,9 @@ def run_round(arn, round_num):
     # Cold invoke — new session ID forces new microVM
     print(f"    cold invoke (session={session_id[:16]}…) …", end=" ", flush=True)
     try:
-        cold_ms, cold_agent_ms, uptime_s = invoke(arn, session_id)
-        print(f"{cold_ms:.0f}ms (agent={cold_agent_ms}ms, uptime={uptime_s}s)")
-        result.update(cold_invoke_ms=round(cold_ms, 1), cold_agent_ms=cold_agent_ms, uptime_s=uptime_s)
+        cold_ms, cold_agent_ms, uptime_s, vm_id, pid = invoke(arn, session_id)
+        print(f"{cold_ms:.0f}ms (agent={cold_agent_ms}ms, uptime={uptime_s}s, vm={vm_id})")
+        result.update(cold_invoke_ms=round(cold_ms, 1), cold_agent_ms=cold_agent_ms, uptime_s=uptime_s, vm_id=vm_id)
 
         # Validate this was actually a cold start
         if uptime_s is not None and uptime_s > COLD_START_UPTIME_THRESHOLD:
@@ -59,7 +59,7 @@ def run_round(arn, round_num):
     # Warm invoke — same session ID reuses existing session
     print(f"    warm invoke …", end=" ", flush=True)
     try:
-        warm_ms, warm_agent_ms, _ = invoke(arn, session_id)
+        warm_ms, warm_agent_ms, _, _, _ = invoke(arn, session_id)
         print(f"{warm_ms:.0f}ms (agent={warm_agent_ms}ms)")
         result.update(warm_invoke_ms=round(warm_ms, 1), warm_agent_ms=warm_agent_ms)
 

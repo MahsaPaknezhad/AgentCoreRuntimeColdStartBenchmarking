@@ -1,0 +1,50 @@
+{
+  "verdict": "VM_ISOLATED",
+  "runtime_name": "vm_reuse_test_114768",
+  "runtime_arn": "arn:aws:bedrock-agentcore:ap-southeast-2:716375850321:runtime/vm_reuse_test_114768-datsC8C2C8",
+  "sessions_tested": 5,
+  "unique_vms": 5,
+  "unique_pids": 1,
+  "invocations": [
+    {
+      "message": "hello",
+      "uptime_s": 1.658,
+      "vm_id": "d63f8af7d47a425aa6c7c75b3ec72d73",
+      "pid": 1,
+      "latency_ms": 5516.3,
+      "session_id": "vmtest_74fdc977525641ca9e8ea4308eeaa8df"
+    },
+    {
+      "message": "hello",
+      "uptime_s": 1.506,
+      "vm_id": "264f3076ee56421da12e3c4d1a98c441",
+      "pid": 1,
+      "latency_ms": 5390.5,
+      "session_id": "vmtest_f11914d5d8984d55bcf4e4adfc617b6f"
+    },
+    {
+      "message": "hello",
+      "uptime_s": 0.786,
+      "vm_id": "d66a550e38bf43829fa500476d805b79",
+      "pid": 1,
+      "latency_ms": 5431.8,
+      "session_id": "vmtest_7cc5ba06452b4a4c824e6193d2aa5893"
+    },
+    {
+      "message": "hello",
+      "uptime_s": 15.709,
+      "vm_id": "b36ebbabbc574a019768fc1593e04945",
+      "pid": 1,
+      "latency_ms": 553.7,
+      "session_id": "vmtest_4d6918499657415a97ca81b056126003"
+    },
+    {
+      "message": "hello",
+      "uptime_s": 16.419,
+      "vm_id": "ec3031ed80e84d05981b221880273374",
+      "pid": 1,
+      "latency_ms": 457.1,
+      "session_id": "vmtest_b5464e234fc94ed29eafc35df2508d05"
+    }
+  ]
+}
