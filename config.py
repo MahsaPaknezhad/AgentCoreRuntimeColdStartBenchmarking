@@ -36,8 +36,8 @@ DOCKER_RUNTIME_NAME = "coldstart_bench_docker2"
 ECR_REPO_NAME = "coldstart-bench-agent"
 
 # Lifecycle — keep idle timeout short so experiments run faster
-IDLE_TIMEOUT_SECONDS = 60    # 1 min idle → session destroyed (minimum allowed)
-MAX_LIFETIME_SECONDS = 60    # 1 min max → VM terminated (minimum allowed)
+IDLE_TIMEOUT_SECONDS = 600   # 10 min idle → session destroyed
+MAX_LIFETIME_SECONDS = 600   # 10 min max → VM terminated
 
 # Experiment defaults
 DEFAULT_ROUNDS = 5

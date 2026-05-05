@@ -237,3 +237,26 @@ Through experiments 2 and 3, we discovered that AgentCore maintains a pool of ap
 - The pool size is not user-configurable — there is no "provisioned concurrency" setting in AgentCore
 - Adjustable quotas (Active session workloads, New sessions created rate) control capacity ceilings but not pre-warming behavior
 - Increasing `maxLifetime` may allow more VMs to accumulate in the pool, but this is unconfirmed
+
+**Pool behavior proof (Experiment 4):**
+
+Experiment 4 deployed a fresh Docker runtime, waited 20 seconds, sent 15 concurrent requests (batch 1), waited 200 seconds, then sent 20 concurrent requests (batch 2) — without stopping any sessions from batch 1.
+
+| Batch | Concurrent | Pre-warmed | Cold | Pre-warmed uptime | Cold uptime |
+|-------|-----------|------|------|-------------------|-------------|
+| Batch 1 (t=20s) | 15 | 10 | 5 | 25.8s – 27.4s | 3.8s – 4.5s |
+| Batch 2 (t=220s) | 20 | 10 | 10 | 205.5s – 207.9s | 3.7s – 5.1s |
+
+Timing analysis:
+- Batch 1 pre-warmed VMs booted at t = 20 - 26 ≈ **-6s** (during deployment, before READY)
+- Batch 2 pre-warmed VMs booted at t = 220 - 206 ≈ **14s** (also during initial deployment)
+- Both sets of VMs were created at roughly the same time — the platform pre-warms ~20 VMs at deploy time
+- Batch 1 only got 10 because the remaining VMs weren't fully initialized yet at t=20s (only ~14s old)
+- By t=220s, those VMs were fully available and served batch 2
+
+Key findings:
+- The platform pre-warms ~20 VMs at deploy time, but they become available in waves (~10 ready immediately, ~10 more within seconds)
+- At any given moment, ~10 VMs are available in the pool for immediate assignment
+- All vm_ids are unique across both batches — true per-session isolation, no VM reuse
+- The pool does not scale based on demand — fixed at ~10 available regardless of load
+- Docker image size: ~95MB, ZIP package size: ~26MB

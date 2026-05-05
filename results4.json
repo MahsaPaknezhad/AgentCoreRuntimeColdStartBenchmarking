@@ -1,0 +1,402 @@
+{
+  "mode": "docker",
+  "runtime_name": "exp4_docker_ca5b2c",
+  "runtime_arn": "arn:aws:bedrock-agentcore:ap-southeast-2:716375850321:runtime/exp4_docker_ca5b2c-9rzEOR7j3H",
+  "batch1_after_s": 20,
+  "batch1": [
+    {
+      "index": 1,
+      "session_id": "exp4_d6375a3e6fc943369e8959fe01b8c667",
+      "latency_ms": 1814.0,
+      "agent_ms": 1260.3,
+      "uptime_s": 26.798,
+      "vm_id": "00222ee29e4c407ea42ef8ec992a9e2d",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 2,
+      "session_id": "exp4_15599a2c4b5842a68cde3646cf547fde",
+      "latency_ms": 2395.3,
+      "agent_ms": 1939.1,
+      "uptime_s": 27.388,
+      "vm_id": "3cb2a3643cbf40f8aeb4196398d7b833",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 3,
+      "session_id": "exp4_f29432293db8432a89e92d0d264c883d",
+      "latency_ms": 1508.7,
+      "agent_ms": 1044.1,
+      "uptime_s": 26.449,
+      "vm_id": "751ec196f02c4cc4a44b3bc9aad7d5ed",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 4,
+      "session_id": "exp4_cc293b28f6684be799cab570be455dd1",
+      "latency_ms": 1491.1,
+      "agent_ms": 1018.3,
+      "uptime_s": 26.405,
+      "vm_id": "61b7a7d4ae224a0384c8d8d7476cf56b",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 5,
+      "session_id": "exp4_9dff9a03f04043428e00ce37ec176e0b",
+      "latency_ms": 8883.6,
+      "agent_ms": 1233.0,
+      "uptime_s": 3.94,
+      "vm_id": "8bbd74cf4cff4ea2baee73bbc1724efa",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 6,
+      "session_id": "exp4_54883a0133ec4425947c43bf5723760a",
+      "latency_ms": 2261.0,
+      "agent_ms": 1680.0,
+      "uptime_s": 26.502,
+      "vm_id": "fb3e096d1fee4c9ea7b499c948988d29",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 7,
+      "session_id": "exp4_868145d97ee04c428c75b14f81569ee6",
+      "latency_ms": 8675.7,
+      "agent_ms": 1155.5,
+      "uptime_s": 3.757,
+      "vm_id": "0cb752d21fe14a47b31051eb38bb420a",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 8,
+      "session_id": "exp4_d451e5c871ca41aab0bd7c14aabd6cc7",
+      "latency_ms": 1538.9,
+      "agent_ms": 1040.3,
+      "uptime_s": 26.479,
+      "vm_id": "09c57916b90545cc8fb737546fbf1f5b",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 9,
+      "session_id": "exp4_b129f0ca9a4d440da0f9f1fce5f77b3f",
+      "latency_ms": 8584.4,
+      "agent_ms": 1044.3,
+      "uptime_s": 4.363,
+      "vm_id": "2f8b7272c6114c7abe3b3312f55c874c",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 10,
+      "session_id": "exp4_710d9b65401e4adaafcc8ecb22abac47",
+      "latency_ms": 8592.8,
+      "agent_ms": 1116.9,
+      "uptime_s": 4.486,
+      "vm_id": "7c46ae3db25746daae9a4b54268aab89",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 11,
+      "session_id": "exp4_ad9377be102141c7a93be9b9f8d54480",
+      "latency_ms": 1795.8,
+      "agent_ms": 1316.4,
+      "uptime_s": 26.796,
+      "vm_id": "91f16058952440df82e33e3e034de5fa",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 12,
+      "session_id": "exp4_0230de1a2506424eacd556c008b9ecbf",
+      "latency_ms": 8675.1,
+      "agent_ms": 1081.5,
+      "uptime_s": 3.834,
+      "vm_id": "ca4f8e65f13c428695d7e140141edcf9",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 13,
+      "session_id": "exp4_0268452cc851493781d6930f1d50a355",
+      "latency_ms": 1654.0,
+      "agent_ms": 1158.6,
+      "uptime_s": 26.586,
+      "vm_id": "10f6ba05a234466f97324aa060077b1e",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 14,
+      "session_id": "exp4_3b4352f4327e4d13a85878664be38406",
+      "latency_ms": 1579.4,
+      "agent_ms": 1066.5,
+      "uptime_s": 25.789,
+      "vm_id": "d6fdc71d381540f6b31b84728bf89e26",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 15,
+      "session_id": "exp4_035de6431a1a4a408386e7f26e38f8ea",
+      "latency_ms": 1764.8,
+      "agent_ms": 1275.4,
+      "uptime_s": 26.79,
+      "vm_id": "fad2b14c366f462087a9acc57921936d",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    }
+  ],
+  "batch2_after_s": 220,
+  "batch2": [
+    {
+      "index": 1,
+      "session_id": "exp4_924820327fc74393aaf0fc8742155688",
+      "latency_ms": 1623.5,
+      "agent_ms": 1120.9,
+      "uptime_s": 205.662,
+      "vm_id": "6199f4244f894ac583f15153999b8c25",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 2,
+      "session_id": "exp4_efaa1f04cfc64e378c5c8cb2a85c546a",
+      "latency_ms": 8673.8,
+      "agent_ms": 1067.0,
+      "uptime_s": 3.826,
+      "vm_id": "e2be9a4626c94d53a3be08b3845de767",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 3,
+      "session_id": "exp4_87186ba799644ec290679818c99accc1",
+      "latency_ms": 9200.2,
+      "agent_ms": 1678.5,
+      "uptime_s": 5.057,
+      "vm_id": "3a353814ca9847f89aa3d567205402bf",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 4,
+      "session_id": "exp4_bde06d363bc34239bf06c704f1336aef",
+      "latency_ms": 2452.8,
+      "agent_ms": 2003.8,
+      "uptime_s": 206.403,
+      "vm_id": "59d02ff50c384c4ea388447a9432b7fe",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 5,
+      "session_id": "exp4_29da48402e814b0aa691b80f475b3ae5",
+      "latency_ms": 8683.2,
+      "agent_ms": 1213.2,
+      "uptime_s": 3.956,
+      "vm_id": "a642668edbab4b38a252f6d2d6999f7b",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 6,
+      "session_id": "exp4_80065181359f497e9eb7e9dc1730a668",
+      "latency_ms": 8665.5,
+      "agent_ms": 1143.5,
+      "uptime_s": 3.905,
+      "vm_id": "0ac87ccc3db24e4d870c1ac92128aeef",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 7,
+      "session_id": "exp4_543697d9ad1643388ce026251dbe4d55",
+      "latency_ms": 1680.6,
+      "agent_ms": 1283.6,
+      "uptime_s": 206.431,
+      "vm_id": "afbe26ffafe64c2e94d50bff8ab4dde8",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 8,
+      "session_id": "exp4_49965020128c4843b7a64b600e90aab7",
+      "latency_ms": 1605.1,
+      "agent_ms": 1132.6,
+      "uptime_s": 205.513,
+      "vm_id": "07403d22df4e49599f37545002f4c8d0",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 9,
+      "session_id": "exp4_b9d81395469a4b34b332e15d4a0041cd",
+      "latency_ms": 8938.4,
+      "agent_ms": 1443.9,
+      "uptime_s": 4.06,
+      "vm_id": "38870322c2ce4133bf5d9284214d72ee",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 10,
+      "session_id": "exp4_3c2b26534d0c4e2884f828c5cbfa6b58",
+      "latency_ms": 8546.2,
+      "agent_ms": 1110.5,
+      "uptime_s": 4.495,
+      "vm_id": "26de5d540e5b4839912f5d1b5e1f92ea",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 11,
+      "session_id": "exp4_ccd4a777323645cdbc1ff701824d860a",
+      "latency_ms": 8444.6,
+      "agent_ms": 1038.2,
+      "uptime_s": 4.415,
+      "vm_id": "212c67531a554f3fb3494957b5165cf8",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 12,
+      "session_id": "exp4_61150f108c9b4c9b96a3757b7eccd137",
+      "latency_ms": 1368.5,
+      "agent_ms": 944.9,
+      "uptime_s": 206.057,
+      "vm_id": "2abd20b4802948b7ad3ca5ea45a27a3e",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 13,
+      "session_id": "exp4_2657d832d8564fb68e3e7f4163d85566",
+      "latency_ms": 1687.0,
+      "agent_ms": 1261.6,
+      "uptime_s": 206.351,
+      "vm_id": "35bb19d68aed44aeb80a68b2663af2ca",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 14,
+      "session_id": "exp4_55c90dcef6ba4fedb1a3b3e9b09ef389",
+      "latency_ms": 8446.2,
+      "agent_ms": 997.7,
+      "uptime_s": 4.346,
+      "vm_id": "f8c9e70dd61449ee8d69e4e711e20e1a",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 15,
+      "session_id": "exp4_3bf332f1b6ee4020bdab02e262d5ad8f",
+      "latency_ms": 8604.5,
+      "agent_ms": 1130.7,
+      "uptime_s": 3.718,
+      "vm_id": "ca5981adca8c491194d71768eb2a8faa",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 16,
+      "session_id": "exp4_591fdf655f874e748e1f105bb02cbfcf",
+      "latency_ms": 1405.1,
+      "agent_ms": 999.9,
+      "uptime_s": 206.171,
+      "vm_id": "66d93dfc482a47ec9306532427a43e70",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 17,
+      "session_id": "exp4_c2f5ebbf4f8f489f83174c0e799ccb74",
+      "latency_ms": 3923.7,
+      "agent_ms": 1453.9,
+      "uptime_s": 207.901,
+      "vm_id": "40ad374c12a446c7870ce257ff29cad6",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 18,
+      "session_id": "exp4_532c98bb9a9348b6a1c72aa0ce7b6d3e",
+      "latency_ms": 1324.6,
+      "agent_ms": 936.7,
+      "uptime_s": 206.082,
+      "vm_id": "7c224bba189646c9a4b94f20e1b8dfa9",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    },
+    {
+      "index": 19,
+      "session_id": "exp4_e7229e5446f042eb8bed653969be00b7",
+      "latency_ms": 8649.3,
+      "agent_ms": 1185.9,
+      "uptime_s": 3.833,
+      "vm_id": "075d6cb16d2c405789634ae03896871a",
+      "pid": 1,
+      "classification": "COLD",
+      "ok": true
+    },
+    {
+      "index": 20,
+      "session_id": "exp4_f064bda82c654e7a9112370e79b01595",
+      "latency_ms": 2393.4,
+      "agent_ms": 1946.6,
+      "uptime_s": 206.272,
+      "vm_id": "ad844f73e6684db384ac3ef89482c26a",
+      "pid": 1,
+      "classification": "WARM (pre-warmed)",
+      "ok": true
+    }
+  ],
+  "summary": {
+    "batch1_pre_warmed": 10,
+    "batch1_cold": 5,
+    "batch2_pre_warmed": 10,
+    "batch2_cold": 10
+  }
+}
